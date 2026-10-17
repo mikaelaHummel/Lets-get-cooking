@@ -1,61 +1,109 @@
-import { useState } from 'react'
-import { useAuth0 } from '@auth0/auth0-react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
+import { parseRecipe } from './services/aiService';
+import heroImg from './assets/hero.png';
+import reactLogo from './assets/react.svg';
+import viteLogo from './assets/vite.svg';
+import './App.css';
 
 function App() {
   const { loginWithRedirect, logout, isAuthenticated, isLoading, user } = useAuth0();
-  const [recipeUrl, setRecipeUrl] = useState("");
+  const [recipeUrl, setRecipeUrl] = useState('');
+  const [recipeCard, setRecipeCard] = useState(null);
+  const [parsingLoading, setParsingLoading] = useState(false);
 
-  function handleImport() {
-    console.log(recipeUrl);
-  }
+  // Connected to your Gemini AI service!
+  const handleImport = async () => {
+    if (!recipeUrl.trim()) {
+      alert('Please enter a recipe text or URL first!');
+      return;
+    }
+
+    setParsingLoading(true);
+    setRecipeCard(null);
+
+    try {
+      const data = await parseRecipe(recipeUrl);
+      console.log('Gemini Parsed Recipe:', data);
+      setRecipeCard(data);
+    } catch (error) {
+      console.error(error);
+      alert('Error parsing recipe with Gemini. Check your console or API key.');
+    } finally {
+      setParsingLoading(false);
+    }
+  };
 
   return (
     <>
       <section id="center">
         <div>
-          <h1>Lets Get Cooking!</h1>
+          <h1>Lets Get Cooking! 🍳</h1>
           <p>
             Your digital one stop cookbook. Save, swap, shop, and connect.
           </p>
+          
+          {/* Auth0 Login Section */}
           {isLoading ? (
             <p>Checking login status...</p>
-            ) : isAuthenticated ? (
+          ) : isAuthenticated ? (
             <div>
-            <p>Welcome, {user?.name}!</p>
-            <p>You are logged in!</p>
+              <p>Welcome, {user?.name}!</p>
+              <p>You are logged in!</p>
+              <button
+                onClick={() =>
+                  logout({
+                    logoutParams: {
+                      returnTo: window.location.origin
+                    }
+                  })
+                }
+              >
+                Log Out
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => loginWithRedirect()}>
+              Log In
+            </button>
+          )}
 
-            <button
-              onClick={() =>
-            logout({
-            logoutParams: {
-              returnTo: window.location.origin
-            }
-            })
-            }
-            >
-            Log Out
-          </button>
-  </div>
-) : (
-  <button onClick={() => loginWithRedirect()}>
-    Log In
-  </button>
-)}
-          <input
-            type="text"
-             placeholder="Paste a recipe URL..."
-             value = {recipeUrl}
-             onChange={(event) => setRecipeUrl(event.target.value)}
-          />
-          <button onClick={handleImport}>
-            Import Recipe
-          </button>
+          {/* Recipe Input Section linked to Gemini */}
+          <div style={{ marginTop: '20px' }}>
+            <input
+              type="text"
+              placeholder="Paste recipe text or details..."
+              value={recipeUrl}
+              onChange={(event) => setRecipeUrl(event.target.value)}
+              style={{ padding: '10px', width: '70%', marginRight: '10px', borderRadius: '6px' }}
+            />
+            <button onClick={handleImport} disabled={parsingLoading}>
+              {parsingLoading ? 'Extracting Recipe...' : 'Import Recipe'}
+            </button>
+          </div>
+
+          {/* Render the Recipe Card once Gemini responds */}
+          {recipeCard && (
+            <div style={{ marginTop: '25px', padding: '20px', border: '2px solid #ddd', borderRadius: '12px', textAlign: 'left', backgroundColor: '#fff', color: '#333' }}>
+              <h2 style={{ marginTop: 0 }}>{recipeCard.title}</h2>
+              <p><strong>Prep:</strong> {recipeCard.prepTime} | <strong>Cook:</strong> {recipeCard.cookTime} | <strong>Servings:</strong> {recipeCard.servings}</p>
+              
+              <h3>Ingredients</h3>
+              <ul>
+                {recipeCard.ingredients?.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+
+              <h3>Instructions</h3>
+              <ol>
+                {recipeCard.instructions?.map((step, index) => (
+                  <li key={index} style={{ marginBottom: '6px' }}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
-          
       </section>
 
       <div className="ticks"></div>
@@ -144,7 +192,7 @@ function App() {
       <div className="ticks"></div>
       <section id="spacer"></section>
     </>
-  )
+  );
 }
 
-export default App
+export default App; // (or export default App)
