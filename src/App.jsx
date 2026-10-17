@@ -1,257 +1,539 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { parseRecipe } from './services/aiService';
-import heroImg from './assets/hero.png';
-import reactLogo from './assets/react.svg';
-import viteLogo from './assets/vite.svg';
-import './App.css';
+
+const SOURCES = ['TikTok', 'Instagram', 'YouTube', 'Google'];
+const RECIPES_KEY = 'lets-get-cooking-recipes-v1';
+const GROCERIES_KEY = 'lets-get-cooking-groceries-v1';
+
+function loadItems(key) {
+  try {
+    const items = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+function currentRoute() {
+  return window.location.hash.slice(1) || '/';
+}
 
 function App() {
-  const { loginWithRedirect, logout, isAuthenticated, isLoading, user, getAccessTokenSilently } = useAuth0();
-  const [recipeUrl, setRecipeUrl] = useState('');
-  const [recipeCard, setRecipeCard] = useState(null);
-  const [parsingLoading, setParsingLoading] = useState(false);
+  const {
+    loginWithRedirect,
+    logout,
+    isAuthenticated,
+    isLoading,
+  } = useAuth0();
 
-  // Connected to your Gemini AI service!
-  const handleImport = async () => {
-    if (!recipeUrl.trim()) {
-      alert('Please enter a recipe text or URL first!');
+  const [route, setRoute] = useState(currentRoute);
+  const [recipeUrl, setRecipeUrl] = useState('');
+  const [source, setSource] = useState('');
+  const [recipes, setRecipes] = useState(() => loadItems(RECIPES_KEY));
+  const [groceries, setGroceries] = useState(() => loadItems(GROCERIES_KEY));
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
+  const [addingItem, setAddingItem] = useState(false);
+  const [itemName, setItemName] = useState('');
+  const [itemStatus, setItemStatus] = useState('');
+  const [recipeBackRoute, setRecipeBackRoute] = useState('/');
+
+  useEffect(() => {
+    function handleRouteChange() {
+      setRoute(currentRoute());
+      window.scrollTo({ top: 0 });
+    }
+
+    window.addEventListener('hashchange', handleRouteChange);
+    return () =>
+      window.removeEventListener('hashchange', handleRouteChange);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RECIPES_KEY, JSON.stringify(recipes));
+    } catch (error) {
+      console.error('Could not save recipes:', error);
+    }
+  }, [recipes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(GROCERIES_KEY, JSON.stringify(groceries));
+    } catch (error) {
+      console.error('Could not save groceries:', error);
+    }
+  }, [groceries]);
+
+  useEffect(() => {
+    const checked = groceries.filter((item) => item.checkedAt);
+    if (!checked.length) return;
+
+    const nextDeadline = Math.min(
+      ...checked.map((item) => item.checkedAt + 3000)
+    );
+
+    const timer = window.setTimeout(() => {
+      const now = Date.now();
+
+      setGroceries((items) =>
+        items.filter(
+          (item) => !item.checkedAt || item.checkedAt + 3000 > now
+        )
+      );
+    }, Math.max(0, nextDeadline - Date.now()));
+
+    return () => window.clearTimeout(timer);
+  }, [groceries]);
+
+  function navigate(path) {
+    window.location.hash = path;
+  }
+
+  function openRecipe(recipe) {
+    setRecipeBackRoute(route === '/cookbook' ? '/cookbook' : '/');
+    navigate(`/recipe/${recipe.id}`);
+  }
+
+  async function importRecipe(event) {
+    event.preventDefault();
+
+    if (loading) return;
+
+    if (!source) {
+      setStatus('Please select a recipe type first.');
       return;
     }
 
-    setParsingLoading(true);
-    setRecipeCard(null);
+    if (!recipeUrl.trim()) {
+      setStatus('Paste a recipe link first.');
+      return;
+    }
+
+    setLoading(true);
+    setStatus('Reading your recipe...');
 
     try {
-      const data = await parseRecipe(recipeUrl);
-      console.log('Gemini Parsed Recipe:', data);
-      setRecipeCard(data);
+      // Keeps your existing Gemini API service.
+      const card = await parseRecipe(recipeUrl.trim());
+
+      const recipe = {
+        id: crypto.randomUUID(),
+        source,
+        card,
+      };
+
+      setRecipes((items) => [recipe, ...items]);
+      setRecipeUrl('');
+      setStatus('');
+      setRecipeBackRoute('/');
+      navigate(`/recipe/${recipe.id}`);
     } catch (error) {
-      console.error(error);
-      alert('Error parsing recipe with Gemini. Check your console or API key.');
+      console.error('Recipe import failed:', error);
+      setStatus('Unable to import this recipe. Please try again.');
     } finally {
-      setParsingLoading(false);
+      setLoading(false);
     }
-  };
-
-
-
-  // Test whether Python recognizes our logged-in Auth0 user
-async function checkBackendUser() {
-  try {
-    const token = await getAccessTokenSilently();
-
-    const response = await fetch('http://localhost:8000/me', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    const data = await response.json();
-    console.log('Backend user:', data);
-
-  } catch (error) {
-    console.error('Backend authentication failed:', error);
   }
-}
 
-async function handleSaveRecipe() {
-  if (!recipeCard) return;
+  function addGrocery(event) {
+    event.preventDefault();
 
-  try {
-    const token = await getAccessTokenSilently();
+    const name = itemName.trim();
+    if (!name) return;
 
-    const response = await fetch('http://localhost:8000/recipes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+    setGroceries((items) => [
+      ...items,
+      {
+        id: crypto.randomUUID(),
+        name,
+        checkedAt: null,
       },
-      body: JSON.stringify(recipeCard)
-    });
+    ]);
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(JSON.stringify(data));
-    }
-
-    console.log('Saved recipe:', data);
-    alert('Recipe saved successfully!');
-
-  } catch (error) {
-    console.error('Error saving recipe:', error);
-    alert('Could not save recipe. Check the console.');
+    setItemName('');
+    setItemStatus(`${name} added.`);
   }
-}
+
+  function toggleGrocery(id) {
+    setGroceries((items) =>
+      items.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              checkedAt: item.checkedAt ? null : Date.now(),
+            }
+          : item
+      )
+    );
+  }
+
+  const recipeId = route.startsWith('/recipe/')
+    ? route.slice('/recipe/'.length)
+    : null;
+
+  const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
 
   return (
     <>
-      <section id="center">
-        <div>
-          <h1>Lets Get Cooking!</h1>
-          <p>
-            Your digital one stop cookbook. Save, swap, shop, and connect.
-          </p>
-          
-          {/* Auth0 Login Section */}
-          {isLoading ? (
-            <p>Checking login status...</p>
-          ) : isAuthenticated ? (
-            <div>
-              <p>Welcome, {user?.name}!</p>
-              <p>You are logged in!</p>
-              <button onClick={checkBackendUser}>
-                Test Backend Connection
-              </button>
-              <button
-                onClick={() =>
-                  logout({
-                    logoutParams: {
-                      returnTo: window.location.origin
-                    }
-                  })
-                }
+      <header className="header">
+        <button
+          className="cookbook-button"
+          type="button"
+          aria-label="Open my cookbook"
+          title="My cookbook"
+          onClick={() => navigate('/cookbook')}
+        >
+          <img src="/cookbook.png" alt="" />
+        </button>
+
+        <h1 className="header__title">Let&apos;s Get Cooking!</h1>
+
+        <button
+          className="signin"
+          type="button"
+          disabled={isLoading}
+          onClick={() => {
+            if (isAuthenticated) {
+              logout({
+                logoutParams: {
+                  returnTo: window.location.origin,
+                },
+              });
+            } else {
+              loginWithRedirect();
+            }
+          }}
+        >
+          <span className="signin__text">
+            {isLoading
+              ? 'Loading...'
+              : isAuthenticated
+                ? 'Sign out'
+                : 'Sign in'}
+          </span>
+
+          <span className="signin__icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="7" r="3.5" />
+              <path d="M5 21v-3a7 7 0 0 1 14 0v3" />
+            </svg>
+          </span>
+        </button>
+      </header>
+
+      {route === '/' && (
+        <main className="home-page">
+          <section className="card import-card">
+            <h2>Add A New Recipe</h2>
+
+            <form className="import-form" onSubmit={importRecipe}>
+              <div className="link-row">
+                <label htmlFor="recipe-url">Link:</label>
+
+                <input
+                  id="recipe-url"
+                  type="url"
+                  placeholder="Paste a recipe link here"
+                  value={recipeUrl}
+                  onChange={(event) => setRecipeUrl(event.target.value)}
+                  disabled={loading}
+                  required
+                />
+
+                <button
+                  className="enter-button"
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? '...' : 'ENTER'}
+                </button>
+              </div>
+
+              <div
+                className="source-row"
+                role="group"
+                aria-label="Recipe type — select one"
               >
-                Log Out
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => loginWithRedirect()}>
-              Log In
-            </button>
-          )}
+                <span>Type:</span>
 
-          {/* Recipe Input Section linked to Gemini */}
-          <div style={{ marginTop: '20px' }}>
-            <input
-              type="text"
-              placeholder="Paste recipe text or details..."
-              value={recipeUrl}
-              onChange={(event) => setRecipeUrl(event.target.value)}
-              style={{ padding: '10px', width: '70%', marginRight: '10px', borderRadius: '6px' }}
-            />
-            <button onClick={handleImport} disabled={parsingLoading}>
-              {parsingLoading ? 'Extracting Recipe...' : 'Import Recipe'}
-            </button>
+                <div className="source-buttons">
+                  {SOURCES.map((name) => (
+                    <button
+                      className="source-button"
+                      type="button"
+                      key={name}
+                      aria-pressed={source === name}
+                      disabled={loading}
+                      onClick={() => {
+                        setSource((current) =>
+                          current === name ? '' : name
+                        );
+                        setStatus('');
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="import-status" role="status">
+                {status}
+              </p>
+            </form>
+          </section>
+
+          <div className="home-panels">
+            <section className="card home-panel">
+              <h2>See What&apos;s Cooking</h2>
+              <hr className="recipe-divider" />
+
+              {recipes.length === 0 ? (
+                <p className="empty-text">
+                  Nothing yet. Add a recipe above!
+                </p>
+              ) : (
+                <ul className="recent-list">
+                  {recipes.slice(0, 3).map((recipe) => (
+                    <li className="recent-item" key={recipe.id}>
+                      <div>
+                        <span className="recent-source">
+                          {recipe.source}
+                        </span>
+                        <span className="recent-title">
+                          {recipe.card.title}
+                        </span>
+                      </div>
+
+                      <button
+                        className="button small-button"
+                        type="button"
+                        onClick={() => openRecipe(recipe)}
+                      >
+                        view
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="card home-panel">
+              <h2>Your Grocery List</h2>
+
+              <p className="grocery-count">
+                &mdash; {groceries.length}{' '}
+                {groceries.length === 1 ? 'item' : 'items'} &mdash;
+              </p>
+
+              <div className="grocery-actions">
+                <button
+                  className="button"
+                  type="button"
+                  onClick={() => navigate('/groceries')}
+                >
+                  view list
+                </button>
+
+                <button
+                  className="button"
+                  type="button"
+                  aria-expanded={addingItem}
+                  aria-controls="add-grocery-form"
+                  onClick={() => {
+                    setAddingItem((open) => !open);
+                    setItemStatus('');
+                  }}
+                >
+                  {addingItem ? 'done' : 'add item'}
+                </button>
+              </div>
+
+              {addingItem && (
+                <form
+                  id="add-grocery-form"
+                  className="add-grocery-form"
+                  onSubmit={addGrocery}
+                >
+                  <label htmlFor="grocery-name">New item</label>
+
+                  <div className="add-grocery-row">
+                    <input
+                      id="grocery-name"
+                      type="text"
+                      placeholder="e.g. eggs"
+                      value={itemName}
+                      onChange={(event) => {
+                        setItemName(event.target.value);
+                        setItemStatus('');
+                      }}
+                      autoFocus
+                      required
+                    />
+
+                    <button
+                      className="button small-button"
+                      type="submit"
+                      disabled={!itemName.trim()}
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  <p className="item-status" role="status">
+                    {itemStatus}
+                  </p>
+                </form>
+              )}
+            </section>
           </div>
+        </main>
+      )}
 
-          {/* Render the Recipe Card once Gemini responds */}
-          {recipeCard && (
-            <div style={{ marginTop: '25px', padding: '20px', border: '2px solid #ddd', borderRadius: '12px', textAlign: 'left', backgroundColor: '#fff', color: '#333' }}>
-              <h2 style={{ marginTop: 0 }}>{recipeCard.title}</h2>
-              <p><strong>Prep:</strong> {recipeCard.prepTime} | <strong>Cook:</strong> {recipeCard.cookTime} | <strong>Servings:</strong> {recipeCard.servings}</p>
-              
-              <h3>Ingredients</h3>
-              <ul>
-                {recipeCard.ingredients?.map((item, index) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
+      {route === '/groceries' && (
+        <main className="detail-page grocery-page">
+          <button
+            className="button back-button"
+            type="button"
+            onClick={() => navigate('/')}
+          >
+            ← Back to home
+          </button>
 
-              <h3>Instructions</h3>
-              <ol>
-                {recipeCard.instructions?.map((step, index) => (
-                  <li key={index} style={{ marginBottom: '6px' }}>{step}</li>
-                ))}
-              </ol>
-                {isAuthenticated && (
-                <button onClick={handleSaveRecipe}>
-                Save Recipe
-              </button>
-                )}
+          <h2 className="page-title">Your Grocery List</h2>
+
+          <section className="card grocery-sheet">
+            {groceries.length === 0 ? (
+              <p className="empty-text">Your grocery list is empty.</p>
+            ) : (
+              <>
+                <p className="grocery-hint">
+                  Check an item to remove it in 3 seconds.
+                  Uncheck it to keep it.
+                </p>
+
+                <ul className="grocery-list">
+                  {groceries.map((item) => (
+                    <li key={item.id}>
+                      <label
+                        className={`grocery-check ${
+                          item.checkedAt ? 'is-checked' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(item.checkedAt)}
+                          onChange={() => toggleGrocery(item.id)}
+                        />
+                        <span>{item.name}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        </main>
+      )}
+
+      {route === '/cookbook' && (
+        <main className="detail-page">
+          <button
+            className="button back-button"
+            type="button"
+            onClick={() => navigate('/')}
+          >
+            ← Back to home
+          </button>
+
+          {recipes.length === 0 ? (
+            <p className="empty-text">Your cookbook is empty.</p>
+          ) : (
+            <div className="cookbook-grid">
+              {recipes.map((recipe) => (
+                <button
+                  className="card cookbook-tile"
+                  type="button"
+                  key={recipe.id}
+                  onClick={() => openRecipe(recipe)}
+                >
+                  <span className="cookbook-title">
+                    {recipe.card.title}
+                  </span>
+                  <span className="cookbook-source">
+                    {recipe.source}
+                  </span>
+                </button>
+              ))}
             </div>
           )}
-        </div>
-      </section>
+        </main>
+      )}
 
-      <div className="ticks"></div>
+      {recipeId && (
+        <main className="detail-page">
+          <button
+            className="button back-button"
+            type="button"
+            onClick={() => navigate(recipeBackRoute)}
+          >
+            {recipeBackRoute === '/cookbook'
+              ? '← Back to cookbook'
+              : '← Back to home'}
+          </button>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          {selectedRecipe ? (
+            <>
+              <h2 className="page-title">
+                {selectedRecipe.card.title}
+              </h2>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+              <article className="card recipe-sheet">
+                <div className="recipe-meta">
+                  <span>
+                    <strong>Prep:</strong>{' '}
+                    {selectedRecipe.card.prepTime}
+                  </span>
+                  <span>
+                    <strong>Cook:</strong>{' '}
+                    {selectedRecipe.card.cookTime}
+                  </span>
+                  <span>
+                    <strong>Servings:</strong>{' '}
+                    {selectedRecipe.card.servings}
+                  </span>
+                </div>
+
+                <h3>Ingredients</h3>
+                <ul>
+                  {selectedRecipe.card.ingredients?.map((item, index) => (
+                    <li key={index}>{item}</li>
+                  ))}
+                </ul>
+
+                <h3>Instructions</h3>
+                <ol>
+                  {selectedRecipe.card.instructions?.map((step, index) => (
+                    <li key={index}>{step}</li>
+                  ))}
+                </ol>
+              </article>
+            </>
+          ) : (
+            <p className="empty-text">This recipe could not be found.</p>
+          )}
+        </main>
+      )}
     </>
   );
 }
 
-export default App; // (or export default App)
+export default App;
