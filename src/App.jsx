@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useAuth0 } from '@auth0/auth0-react'
 import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import './App.css'
 
 function App() {
+  const { loginWithRedirect, logout, isAuthenticated, isLoading, user } = useAuth0();
   const [recipeUrl, setRecipeUrl] = useState("");
 
   function handleImport() {
@@ -19,6 +21,30 @@ function App() {
           <p>
             Your digital one stop cookbook. Save, swap, shop, and connect.
           </p>
+          {isLoading ? (
+            <p>Checking login status...</p>
+            ) : isAuthenticated ? (
+            <div>
+            <p>Welcome, {user?.name}!</p>
+            <p>You are logged in!</p>
+
+            <button
+              onClick={() =>
+            logout({
+            logoutParams: {
+              returnTo: window.location.origin
+            }
+            })
+            }
+            >
+            Log Out
+          </button>
+  </div>
+) : (
+  <button onClick={() => loginWithRedirect()}>
+    Log In
+  </button>
+)}
           <input
             type="text"
              placeholder="Paste a recipe URL..."
@@ -26,7 +52,7 @@ function App() {
              onChange={(event) => setRecipeUrl(event.target.value)}
           />
           <button onClick={handleImport}>
-          Import Recipe
+            Import Recipe
           </button>
         </div>
           
