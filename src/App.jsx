@@ -7,7 +7,7 @@ import viteLogo from './assets/vite.svg';
 import './App.css';
 
 function App() {
-  const { loginWithRedirect, logout, isAuthenticated, isLoading, user } = useAuth0();
+  const { loginWithRedirect, logout, isAuthenticated, isLoading, user, getAccessTokenSilently } = useAuth0();
   const [recipeUrl, setRecipeUrl] = useState('');
   const [recipeCard, setRecipeCard] = useState(null);
   const [parsingLoading, setParsingLoading] = useState(false);
@@ -34,11 +34,62 @@ function App() {
     }
   };
 
+
+
+  // Test whether Python recognizes our logged-in Auth0 user
+async function checkBackendUser() {
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch('http://localhost:8000/me', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const data = await response.json();
+    console.log('Backend user:', data);
+
+  } catch (error) {
+    console.error('Backend authentication failed:', error);
+  }
+}
+
+async function handleSaveRecipe() {
+  if (!recipeCard) return;
+
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch('http://localhost:8000/recipes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(recipeCard)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(JSON.stringify(data));
+    }
+
+    console.log('Saved recipe:', data);
+    alert('Recipe saved successfully!');
+
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+    alert('Could not save recipe. Check the console.');
+  }
+}
+
   return (
     <>
       <section id="center">
         <div>
-          <h1>Lets Get Cooking! 🍳</h1>
+          <h1>Lets Get Cooking!</h1>
           <p>
             Your digital one stop cookbook. Save, swap, shop, and connect.
           </p>
@@ -50,6 +101,9 @@ function App() {
             <div>
               <p>Welcome, {user?.name}!</p>
               <p>You are logged in!</p>
+              <button onClick={checkBackendUser}>
+                Test Backend Connection
+              </button>
               <button
                 onClick={() =>
                   logout({
@@ -101,6 +155,11 @@ function App() {
                   <li key={index} style={{ marginBottom: '6px' }}>{step}</li>
                 ))}
               </ol>
+                {isAuthenticated && (
+                <button onClick={handleSaveRecipe}>
+                Save Recipe
+              </button>
+                )}
             </div>
           )}
         </div>
