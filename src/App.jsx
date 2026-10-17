@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { parseRecipe } from './services/aiService';
+import RecipeChat from './components/RecipeChat';
 import heroImg from './assets/hero.png';
 import reactLogo from './assets/react.svg';
 import viteLogo from './assets/vite.svg';
@@ -84,7 +85,7 @@ function App() {
 
           {/* Render the Recipe Card once Gemini responds */}
           {recipeCard && (
-            <div style={{ marginTop: '25px', padding: '20px', border: '2px solid #ddd', borderRadius: '12px', textAlign: 'left', backgroundColor: '#fff', color: '#333' }}>
+            <div style={{ marginTop: '25px', padding: '20px', border: '2px solid #ddd', borderRadius: '12px', textAlign: 'left', backgroundColor: '#fff', color: '#333', position: 'relative' }}>
               <h2 style={{ marginTop: 0 }}>{recipeCard.title}</h2>
               <p><strong>Prep:</strong> {recipeCard.prepTime} | <strong>Cook:</strong> {recipeCard.cookTime} | <strong>Servings:</strong> {recipeCard.servings}</p>
               
@@ -101,6 +102,12 @@ function App() {
                   <li key={index} style={{ marginBottom: '6px' }}>{step}</li>
                 ))}
               </ol>
+
+              {/* Interactive Floating Chatbot */}
+              <RecipeChat 
+                currentRecipe={recipeCard} 
+                onUpdateRecipe={(updatedCard) => setRecipeCard(updatedCard)} 
+              />
             </div>
           )}
         </div>
@@ -117,13 +124,13 @@ function App() {
           <p>Your questions, answered</p>
           <ul>
             <li>
-              <a href="https://vite.dev/" target="_blank">
+              <a href="https://vite.dev/" target="_blank" rel="noreferrer">
                 <img className="logo" src={viteLogo} alt="" />
                 Explore Vite
               </a>
             </li>
             <li>
-              <a href="https://react.dev/" target="_blank">
+              <a href="https://react.dev/" target="_blank" rel="noreferrer">
                 <img className="button-icon" src={reactLogo} alt="" />
                 Learn more
               </a>
@@ -138,7 +145,7 @@ function App() {
           <p>Join the Vite community</p>
           <ul>
             <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
+              <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -150,7 +157,7 @@ function App() {
               </a>
             </li>
             <li>
-              <a href="https://chat.vite.dev/" target="_blank">
+              <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -162,7 +169,7 @@ function App() {
               </a>
             </li>
             <li>
-              <a href="https://x.com/vite_js" target="_blank">
+              <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -174,7 +181,7 @@ function App() {
               </a>
             </li>
             <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
+              <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
                 <svg
                   className="button-icon"
                   role="presentation"
@@ -195,4 +202,4 @@ function App() {
   );
 }
 
-export default App; // (or export default App)
+export default App;
