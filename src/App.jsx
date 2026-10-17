@@ -1,19 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { parseRecipe } from './services/aiService';
+import RecipeChat from './components/RecipeChat';
 
 const SOURCES = ['TikTok', 'Instagram', 'YouTube', 'Google'];
-const RECIPES_KEY = 'lets-get-cooking-recipes-v1';
-const GROCERIES_KEY = 'lets-get-cooking-groceries-v1';
 
-function loadItems(key) {
-  try {
-    const items = JSON.parse(localStorage.getItem(key) || '[]');
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
-  }
-}
 
 function currentRoute() {
   return window.location.hash.slice(1) || '/';
@@ -25,13 +16,15 @@ function App() {
     logout,
     isAuthenticated,
     isLoading,
+    user,
+    getAccessTokenSilently,
   } = useAuth0();
 
   const [route, setRoute] = useState(currentRoute);
   const [recipeUrl, setRecipeUrl] = useState('');
   const [source, setSource] = useState('');
-  const [recipes, setRecipes] = useState(() => loadItems(RECIPES_KEY));
-  const [groceries, setGroceries] = useState(() => loadItems(GROCERIES_KEY));
+  const [recipes, setRecipes] = useState([]);
+  const [groceries, setGroceries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const [addingItem, setAddingItem] = useState(false);
@@ -49,22 +42,6 @@ function App() {
     return () =>
       window.removeEventListener('hashchange', handleRouteChange);
   }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(RECIPES_KEY, JSON.stringify(recipes));
-    } catch (error) {
-      console.error('Could not save recipes:', error);
-    }
-  }, [recipes]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(GROCERIES_KEY, JSON.stringify(groceries));
-    } catch (error) {
-      console.error('Could not save groceries:', error);
-    }
-  }, [groceries]);
 
   useEffect(() => {
     const checked = groceries.filter((item) => item.checkedAt);
@@ -174,6 +151,36 @@ function App() {
     : null;
 
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
+
+  async function handleSaveRecipe(card) {
+  if (!card) return;
+
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch('http://localhost:8000/recipes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(card)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(JSON.stringify(data));
+    }
+
+    console.log('Saved recipe:', data);
+    alert('Recipe saved successfully!');
+
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+    alert('Could not save recipe. Check the console.');
+  }
+}
 
   return (
     <>
@@ -525,6 +532,28 @@ function App() {
                     <li key={index}>{step}</li>
                   ))}
                 </ol>
+
+                {isAuthenticated && (
+                  <button
+                    className="button"
+                    type="button"
+                   onClick={() => handleSaveRecipe(selectedRecipe.card)}
+                  >
+                    Save Recipe
+                  </button>
+                )}
+
+                <RecipeChat
+                  currentRecipe={selectedRecipe.card}
+                  onUpdateRecipe={(updatedCard) =>
+                   setRecipes((items) =>
+                     items.map((r) =>
+                        r.id === selectedRecipe.id ? { ...r, card: updatedCard } : r
+                     )
+                   )
+                  }
+                />
+
               </article>
             </>
           ) : (
