@@ -229,6 +229,47 @@ function App() {
     }
   }
 
+  async function handleDeleteRecipe(recipe) {
+  if (!recipe.id || !/^\d+$/.test(String(recipe.id))) {
+    alert('This recipe has not been saved to your cookbook yet.');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Are you sure you want to permanently delete "${recipe.card.title}"?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch(
+      `http://localhost:8000/recipes/${recipe.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Could not delete recipe');
+    }
+
+    setRecipes((items) =>
+      items.filter((item) => item.id !== recipe.id)
+    );
+
+    navigate('/cookbook');
+
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    alert('Could not delete recipe. Please try again.');
+  }
+}
+
   async function loadSavedRecipes() {
   try {
     const token = await getAccessTokenSilently();
@@ -629,11 +670,41 @@ function App() {
                     {savingRecipe ? 'Saving...' : 'Save Recipe'}
                   </button>
                 )}
-
+                {isAuthenticated && /^\d+$/.test(String(selectedRecipe.id)) && (
+                <button
+                   className="button"
+                    type="button"
+                    onClick={() => handleDeleteRecipe(selectedRecipe)}
+                  >
+                    Delete Recipe
+                  </button>
+                )}
                 <RecipeChat
-                  currentRecipe={selectedRecipe.card}
-                  onUpdateRecipe={handleRecipeUpdate}
-                />
+                currentRecipe={selectedRecipe.card}
+                onUpdateRecipe={(updatedCard) => {
+                  const variationName = window.prompt(
+                    'What would you like to name this recipe variation?',
+                    `${selectedRecipe.card.title} (Substitute)`
+                  );
+
+                  if (variationName === null) return;
+
+                  const newRecipe = {
+                    id: crypto.randomUUID(),
+                    source: 'AI Substitute',
+                    card: {
+                      ...updatedCard,
+                      title: variationName.trim() ||
+                        `${selectedRecipe.card.title} (Substitute)`
+                    }
+                  };
+
+                  setRecipes((items) => [newRecipe, ...items]);
+
+                  setRecipeBackRoute('/cookbook');
+                  navigate(`/recipe/${newRecipe.id}`);
+                }}
+              />
 
               </article>
             </>

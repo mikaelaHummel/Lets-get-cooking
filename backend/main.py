@@ -16,6 +16,7 @@ from google import genai
 
 
 
+#hello
 
 
 
@@ -329,7 +330,33 @@ def save_recipe(
   }
 
 
+@app.delete("/recipes/{recipe_id}")
+def delete_recipe(
+    recipe_id: int,
+    payload: dict = Depends(verify_token)
+):
+    auth0_id = payload["sub"]
 
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM recipes
+                WHERE id = %s AND user_id = %s
+                RETURNING id
+                """,
+                (recipe_id, auth0_id)
+            )
+
+            deleted = cur.fetchone()
+
+    if deleted is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Recipe not found"
+        )
+
+    return {"message": "Recipe deleted successfully!"}
 
 
 
