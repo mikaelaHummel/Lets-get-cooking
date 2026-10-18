@@ -39,8 +39,10 @@ function App() {
 
   if (isAuthenticated) {
     loadSavedRecipes();
+    loadSavedGroceries();
   } else {
     setRecipes([]);
+    setGroceries([]);
   }
 }, [isAuthenticated, isLoading, getAccessTokenSilently]);
 
@@ -67,25 +69,59 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const checked = groceries.filter((item) => item.checkedAt);
-    if (!checked.length) return;
+  const checked = groceries.filter((item) => item.checkedAt);
+  if (!checked.length) return;
 
-    const nextDeadline = Math.min(
-      ...checked.map((item) => item.checkedAt + 3000)
+  const nextDeadline = Math.min(
+    ...checked.map((item) => item.checkedAt + 3000)
+  );
+
+  const timer = window.setTimeout(async () => {
+    const now = Date.now();
+
+    const expiredItems = groceries.filter(
+      (item) => item.checkedAt && item.checkedAt + 3000 <= now
     );
 
-    const timer = window.setTimeout(() => {
-      const now = Date.now();
+    for (const item of expiredItems) {
+      try {
+        const token = await getAccessTokenSilently();
 
-      setGroceries((items) =>
-        items.filter(
-          (item) => !item.checkedAt || item.checkedAt + 3000 > now
-        )
-      );
-    }, Math.max(0, nextDeadline - Date.now()));
+        const response = await fetch(
+          `http://localhost:8000/groceries/${item.id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
 
-    return () => window.clearTimeout(timer);
-  }, [groceries]);
+        if (!response.ok) {
+          throw new Error('Could not delete grocery');
+        }
+
+        setGroceries((items) =>
+          items.filter((grocery) => grocery.id !== item.id)
+        );
+
+      } catch (error) {
+        console.error('Error deleting grocery:', error);
+
+        // Restore the item if deletion fails.
+        setGroceries((items) =>
+          items.map((grocery) =>
+            grocery.id === item.id
+              ? { ...grocery, checkedAt: null }
+              : grocery
+          )
+        );
+      }
+    }
+  }, Math.max(0, nextDeadline - Date.now()));
+
+  return () => window.clearTimeout(timer);
+}, [groceries, getAccessTokenSilently]);
 
   function navigate(path) {
     window.location.hash = path;
@@ -137,24 +173,47 @@ function App() {
     }
   }
 
-  function addGrocery(event) {
-    event.preventDefault();
+  async function addGrocery(event) {
+  event.preventDefault();
 
-    const name = itemName.trim();
-    if (!name) return;
+  const name = itemName.trim();
+  if (!name) return;
+
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch('http://localhost:8000/groceries', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ name })
+    });
+
+    if (!response.ok) {
+      throw new Error('Could not save grocery item');
+    }
+
+    const savedItem = await response.json();
 
     setGroceries((items) => [
       ...items,
       {
-        id: crypto.randomUUID(),
-        name,
-        checkedAt: null,
-      },
+        id: savedItem.id,
+        name: savedItem.name,
+        checkedAt: null
+      }
     ]);
 
     setItemName('');
     setItemStatus(`${name} added.`);
+
+  } catch (error) {
+    console.error('Error adding grocery:', error);
+    setItemStatus('Could not add item. Please try again.');
   }
+}
 
   function toggleGrocery(id) {
     setGroceries((items) =>
@@ -296,6 +355,35 @@ function App() {
 
   } catch (error) {
     console.error('Error loading saved recipes:', error);
+  }
+}
+
+async function loadSavedGroceries() {
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch('http://localhost:8000/groceries', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Could not load groceries');
+    }
+
+    const data = await response.json();
+
+    setGroceries(
+      data.map((item) => ({
+        id: item.id,
+        name: item.name,
+        checkedAt: null
+      }))
+    );
+
+  } catch (error) {
+    console.error('Error loading groceries:', error);
   }
 }
 

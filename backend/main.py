@@ -142,7 +142,8 @@ def verify_token(
 
 
 
-
+class GroceryItem(BaseModel):
+    name: str
 
 
 
@@ -212,7 +213,91 @@ def get_current_user(payload: dict = Depends(verify_token)):
       "auth0_id": payload["sub"]
   }
 
+@app.post("/groceries")
+def add_grocery(
+    item: GroceryItem,
+    payload: dict = Depends(verify_token)
+):
+    auth0_id = payload["sub"]
+    name = item.name.strip()
 
+    if not name:
+        raise HTTPException(status_code=400, detail="Grocery name cannot be empty")
+
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO profiles (auth0_id, display_name)
+                VALUES (%s, %s)
+                ON CONFLICT (auth0_id) DO NOTHING
+                """,
+                (auth0_id, "New Chef")
+            )
+
+            cur.execute(
+                """
+                INSERT INTO groceries (user_id, name)
+                VALUES (%s, %s)
+                RETURNING id
+                """,
+                (auth0_id, name)
+            )
+
+            item_id = cur.fetchone()[0]
+
+    return {"id": item_id, "name": name}
+
+@app.get("/groceries")
+def get_groceries(payload: dict = Depends(verify_token)):
+    auth0_id = payload["sub"]
+
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, name
+                FROM groceries
+                WHERE user_id = %s
+                ORDER BY created_at ASC, id ASC
+                """,
+                (auth0_id,)
+            )
+
+            rows = cur.fetchall()
+
+    return [
+        {"id": row[0], "name": row[1]}
+        for row in rows
+    ]
+
+@app.delete("/groceries/{item_id}")
+def delete_grocery(
+    item_id: int,
+    payload: dict = Depends(verify_token)
+):
+    auth0_id = payload["sub"]
+
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM groceries
+                WHERE id = %s AND user_id = %s
+                RETURNING id
+                """,
+                (item_id, auth0_id)
+            )
+
+            deleted = cur.fetchone()
+
+    if deleted is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Grocery item not found"
+        )
+
+    return {"message": "Grocery item deleted successfully!"}
 
 @app.get("/recipes")
 def get_recipes(payload: dict = Depends(verify_token)):
