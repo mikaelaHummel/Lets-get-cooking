@@ -1,73 +1,92 @@
-import { GoogleGenAI } from '@google/genai';
+// src/services/aiService.js
 
-// Read your API key from .env
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const ai = new GoogleGenAI({ apiKey });
+// 1. Function used by App.jsx to extract/parse recipes from links or text
+export async function parseRecipe(input) {
+ try {
+   const response = await fetch("http://localhost:8000/api/chat", {
+     method: "POST",
+     headers: {
+       "Content-Type": "application/json",
+     },
+     body: JSON.stringify({
+       prompt: `Extract and format a structured recipe from this input: ${input}`,
+       recipeData: null
+     }),
+   });
 
-export async function parseRecipe(rawCaptionOrText) {
-  const prompt = `
-    You are an expert chef assistant. Extract the recipe details from the text below.
-    Format the output strictly as a valid JSON object matching this schema:
-    {
-      "title": "Recipe Name",
-      "prepTime": "10 mins",
-      "cookTime": "15 mins",
-      "servings": "2-4",
-      "ingredients": ["1 cup flour", "2 eggs"],
-      "instructions": ["Step 1 description", "Step 2 description"]    }
 
-    Text to parse:
-    "${rawCaptionOrText}"
-  `;
+   if (!response.ok) {
+     throw new Error("Failed to parse recipe.");
+   }
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: { responseMimeType: "application/json" }
-    });
 
-    return JSON.parse(response.text);
-  } catch (error) {
-    console.error("Error parsing recipe:", error);
-    throw error;
-  }
+   const data = await response.json();
+    // Clean up markdown code block wrappers if Gemini included them
+   let cleanText = data.response.trim();
+   if (cleanText.startsWith("```json")) {
+     cleanText = cleanText.replace(/^```json/, "").replace(/```\$/, "").trim();
+   } else if (cleanText.startsWith("```")) {
+     cleanText = cleanText.replace(/^```/, "").replace(/```$/, "").trim();
+   }
+
+
+   // Convert into structured JavaScript object
+   return JSON.parse(cleanText);
+ } catch (error) {
+   console.error("Error parsing recipe:", error);
+   throw error;
+ }
 }
 
-export async function chatWithRecipeAssistant(currentRecipe, userMessage) {
-  try {
-    const prompt = `
-      You are a friendly, expert chef assistant.
-      
-      Here is the current recipe JSON:
-      ${JSON.stringify(currentRecipe, null, 2)}
-      
-      User request: "${userMessage}"
-      
-      Your goal:
-      1. Answer the user's culinary question or suggestion (e.g. dietary substitution, missing ingredients).
-      2. If the user's request changes the recipe (e.g. substituting ingredients, scaling, or changing steps), create a modified version of the recipe JSON.
-      
-      Return strictly a JSON object with this structure:
-      {
-        "reply": "Your friendly explanation to the user here.",
-        "updatedRecipe": null or { title, prepTime, cookTime, servings, ingredients: [...], instructions: [...] }
-      }
-      
-      Note: Set "updatedRecipe" to null if no changes to the actual recipe card are required.
-    `;
 
-    const aiResponse = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
+// 2. Function used by RecipeChat.jsx to talk with Sous-Chef AI
+export async function chatWithRecipeAssistant(prompt, recipeData) {
+ try {
+   const response = await fetch("http://localhost:8000/api/chat", {
+     method: "POST",
+     headers: {
+       "Content-Type": "application/json",
+     },
+     body: JSON.stringify({
+       prompt: prompt,
+       recipeData: recipeData
+     }),
+   });
 
-    return JSON.parse(aiResponse.text);
-  } catch (error) {
-    console.error("Error in recipe assistant chat:", error);
-    throw error;
-  }
+
+   if (!response.ok) {
+     throw new Error("Failed to communicate with the Sous-Chef backend.");
+   }
+
+
+   const data = await response.json();
+   let rawText = data.response.trim();
+
+
+   // Clean up code blocks if Gemini returned markdown
+   if (rawText.startsWith("```json")) {
+     rawText = rawText.replace(/^```json/, "").replace(/```\$/, "").trim();
+   } else if (rawText.startsWith("```")) {
+     rawText = rawText.replace(/^```/, "").replace(/```$/, "").trim();
+   }
+
+
+   // Try parsing as JSON object (containing { message/reply, updatedRecipe })
+   try {
+     const parsed = JSON.parse(rawText);
+     return {
+       reply: parsed.message || parsed.reply || "I've updated the recipe details for you!",
+       updatedRecipe: parsed.updatedRecipe || null,
+     };
+   } catch {
+     // Fallback for conversational plain-text responses
+     return {
+       reply: rawText,
+       updatedRecipe: null,
+     };
+   }
+ } catch (error) {
+   console.error("Error in recipe assistant chat:", error);
+   throw error;
+ }
 }

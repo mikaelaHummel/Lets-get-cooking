@@ -87,23 +87,24 @@ input:focus-visible {
 .cookbook-button {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 4px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
+  width: 58px;
+  height: 46px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--button);
 }
 
 .cookbook-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #b9cda9;
 }
 
 .cookbook-button img {
   display: block;
-  width: 32px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 .header__title {
@@ -123,7 +124,7 @@ input:focus-visible {
 .signin {
   display: inline-flex;
   align-items: stretch;
-  min-height: 46px;
+  height: 46px;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -521,6 +522,7 @@ input:focus-visible {
 /* Recipe details */
 
 .recipe-sheet {
+  position: relative;
   padding: 32px 40px 40px;
   font-size: 22px;
   line-height: 1.65;
@@ -594,7 +596,7 @@ input:focus-visible {
   }
 
   .signin {
-    min-height: 38px;
+    height: 38px;
     font-size: 18px;
   }
 
@@ -686,5 +688,14 @@ input:focus-visible {
 
   .recipe-sheet h3 {
     font-size: 29px;
+  }
+
+  .cookbook-button {
+    height: 38px;
+  }
+
+  .cookbook-button img {
+    width: 32px;
+    height: 32px;
   }
 }
