@@ -105,7 +105,14 @@ export default function RecipeChat({ currentRecipe, onUpdateRecipe }) {
              </div>
            ))}
            {loading && (
-             <div style={{ ...styles.bubble, alignSelf: 'flex-start', backgroundColor: '#f1f1f1' }}>
+             <div
+                style={{
+                  ...styles.bubble,
+                  alignSelf: 'flex-start',
+                  backgroundColor: '#eeece5',
+                  color: '#303b2b',
+                }}
+              >
                👨‍🍳 Thinking...
              </div>
            )}
@@ -148,114 +155,130 @@ export default function RecipeChat({ currentRecipe, onUpdateRecipe }) {
 
 // Inline Styles for bottom-right corner positioning
 const styles = {
- container: {
-   position: 'fixed',
-   bottom: '20px',
-   right: '20px',
-   zIndex: 1000,
- },
- fab: {
-   width: '56px',
-   height: '56px',
-   borderRadius: '50%',
-   backgroundColor: '#ff6b6b',
-   border: 'none',
-   boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-   cursor: 'pointer',
-   fontSize: '24px',
-   display: 'flex',
-   alignItems: 'center',
-   justifyContent: 'center',
- },
- chatWindow: {
-   position: 'absolute',
-   bottom: '70px',
-   right: '0',
-   width: '320px',
-   height: '420px',
-   backgroundColor: '#ffffff',
-   borderRadius: '12px',
-   boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-   display: 'flex',
-   flexDirection: 'column',
-   overflow: 'hidden',
-   border: '1px solid #eee',
- },
- header: {
-   backgroundColor: '#ff6b6b',
-   color: '#fff',
-   padding: '12px 16px',
-   display: 'flex',
-   justifyContent: 'space-between',
-   alignItems: 'center',
-   fontWeight: 'bold',
- },
- closeBtn: {
-   background: 'none',
-   border: 'none',
-   color: '#fff',
-   fontSize: '16px',
-   cursor: 'pointer',
- },
- messageList: {
-   flex: 1,
-   padding: '12px',
-   overflowY: 'auto',
-   display: 'flex',
-   flexDirection: 'column',
-   gap: '8px',
- },
- bubble: {
-   maxWidth: '80%',
-   padding: '8px 12px',
-   borderRadius: '16px',
-   fontSize: '0.9rem',
-   lineHeight: '1.3',
- },
- proposalBanner: {
-   backgroundColor: '#fff3cd',
-   borderTop: '1px solid #ffeeba',
-   padding: '8px 12px',
- },
- approveBtn: {
-   backgroundColor: '#28a745',
-   color: '#fff',
-   border: 'none',
-   padding: '4px 8px',
-   borderRadius: '4px',
-   cursor: 'pointer',
-   fontSize: '0.8rem',
- },
- rejectBtn: {
-   backgroundColor: '#6c757d',
-   color: '#fff',
-   border: 'none',
-   padding: '4px 8px',
-   borderRadius: '4px',
-   cursor: 'pointer',
-   fontSize: '0.8rem',
- },
- inputArea: {
-   display: 'flex',
-   padding: '8px',
-   borderTop: '1px solid #eee',
-   backgroundColor: '#fff',
- },
- inputField: {
-   flex: 1,
-   padding: '8px',
-   border: '1px solid #ccc',
-   borderRadius: '4px',
-   fontSize: '0.85rem',
- },
- sendBtn: {
-   marginLeft: '6px',
-   backgroundColor: '#ff6b6b',
-   color: '#fff',
-   border: 'none',
-   padding: '8px 12px',
-   borderRadius: '4px',
-   cursor: 'pointer',
-   fontSize: '0.85rem',
- },
+  container: {
+    position: 'fixed',
+    bottom: '20px',
+    right: '20px',
+    zIndex: 1000,
+  },
+
+  fab: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '50%',
+    backgroundColor: '#b6c7a8',
+    border: 'none',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    cursor: 'pointer',
+    fontSize: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  chatWindow: {
+    position: 'absolute',
+    bottom: '70px',
+    right: '0',
+    width: '320px',
+    height: '420px',
+    backgroundColor: '#fbfaf4',
+    borderRadius: '12px',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    border: '1px solid #d7dbcf',
+  },
+
+  header: {
+    backgroundColor: '#b6c7a8',
+    color: '#303b2b',
+    padding: '12px 16px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    fontWeight: 'bold',
+  },
+
+  closeBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#303b2b',
+    fontSize: '16px',
+    cursor: 'pointer',
+  },
+
+  messageList: {
+    flex: 1,
+    minHeight: 0,
+    padding: '12px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+
+  bubble: {
+    maxWidth: '80%',
+    padding: '8px 12px',
+    borderRadius: '16px',
+    fontSize: '0.9rem',
+    lineHeight: '1.3',
+  },
+
+  proposalBanner: {
+    backgroundColor: '#eeecdf',
+    borderTop: '1px solid #d7d5c8',
+    padding: '8px 12px',
+  },
+
+  approveBtn: {
+    backgroundColor: '#cad9bc',
+    color: '#303b2b',
+    border: 'none',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+  },
+
+  rejectBtn: {
+    backgroundColor: '#e0ddd5',
+    color: '#414139',
+    border: 'none',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+  },
+
+  inputArea: {
+    display: 'flex',
+    padding: '8px',
+    borderTop: '1px solid #d7dbcf',
+    backgroundColor: '#fbfaf4',
+  },
+
+  inputField: {
+    flex: 1,
+    minWidth: 0,
+    padding: '8px',
+    border: '1px solid #c8cdbf',
+    borderRadius: '4px',
+    backgroundColor: '#fffef9',
+    color: '#303b2b',
+    fontSize: '0.85rem',
+  },
+
+  sendBtn: {
+    marginLeft: '6px',
+    backgroundColor: '#cad9bc',
+    color: '#303b2b',
+    border: 'none',
+    padding: '8px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+  },
 };

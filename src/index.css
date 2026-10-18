@@ -249,9 +249,9 @@ input:focus-visible {
   width: 78px;
   height: 37px;
   padding: 0;
-  border: 1px solid #000;
+  border: 1px solid #55594f;
   border-radius: 3px;
-  background: #000;
+  background: #55594f;
   color: #fff;
   font-family: var(--hand);
   font-size: 14px;
