@@ -31,14 +31,27 @@ function App() {
   const [itemName, setItemName] = useState('');
   const [itemStatus, setItemStatus] = useState('');
   const [recipeBackRoute, setRecipeBackRoute] = useState('/');
+  const [previewRecipe, setPreviewRecipe] = useState(null);
+  const [savingRecipe, setSavingRecipe] = useState(false);
 
   useEffect(() => {
     function handleRouteChange() {
-      setRoute(currentRoute());
+      const nextRoute = currentRoute();
+
+      setRoute(nextRoute);
+
+      // Discard the temporary recipe when leaving its card.
+      setPreviewRecipe((preview) =>
+        preview && nextRoute === `/recipe/${preview.id}`
+          ? preview
+          : null
+      );
+
       window.scrollTo({ top: 0 });
     }
 
     window.addEventListener('hashchange', handleRouteChange);
+
     return () =>
       window.removeEventListener('hashchange', handleRouteChange);
   }, []);
@@ -101,7 +114,7 @@ function App() {
         card,
       };
 
-      setRecipes((items) => [recipe, ...items]);
+      setPreviewRecipe(recipe);
       setRecipeUrl('');
       setStatus('');
       setRecipeBackRoute('/');
@@ -150,37 +163,71 @@ function App() {
     ? route.slice('/recipe/'.length)
     : null;
 
-  const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId);
+  const selectedRecipe =
+    previewRecipe?.id === recipeId
+      ? previewRecipe
+      : recipes.find((recipe) => recipe.id === recipeId);
+      
 
   async function handleSaveRecipe(card) {
-  if (!card) return;
+    if (!card || !selectedRecipe || savingRecipe) return;
 
-  try {
-    const token = await getAccessTokenSilently();
-
-    const response = await fetch('http://localhost:8000/recipes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(card)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(JSON.stringify(data));
+    if (!isAuthenticated) {
+      loginWithRedirect();
+      return;
     }
 
-    console.log('Saved recipe:', data);
-    alert('Recipe saved successfully!');
+    const recipeToSave = {
+      ...selectedRecipe,
+      card,
+    };
 
-  } catch (error) {
-    console.error('Error saving recipe:', error);
-    alert('Could not save recipe. Check the console.');
+    setSavingRecipe(true);
+
+    try {
+      const token = await getAccessTokenSilently();
+
+      const response = await fetch('http://localhost:8000/recipes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(card),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Could not save recipe (${response.status}).`);
+      }
+
+      // Add to the visible lists only AFTER a successful database save.
+      setRecipes((items) => [
+        recipeToSave,
+        ...items.filter((recipe) => recipe.id !== recipeToSave.id),
+      ]);
+
+      setPreviewRecipe((preview) =>
+        preview?.id === recipeToSave.id ? null : preview
+      );
+
+      alert('Recipe saved successfully!');
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      alert('Could not save recipe. Please try again.');
+    } finally {
+      setSavingRecipe(false);
+    }
   }
-}
+
+  function handleRecipeUpdate(updatedCard) {
+    if (!selectedRecipe) return;
+
+    // An AI-edited recipe becomes a preview until explicitly saved.
+    setPreviewRecipe({
+      ...selectedRecipe,
+      card: updatedCard,
+    });
+  }
 
   return (
     <>
@@ -537,21 +584,16 @@ function App() {
                   <button
                     className="button"
                     type="button"
-                   onClick={() => handleSaveRecipe(selectedRecipe.card)}
+                    disabled={savingRecipe}
+                    onClick={() => handleSaveRecipe(selectedRecipe.card)}
                   >
-                    Save Recipe
+                    {savingRecipe ? 'Saving...' : 'Save Recipe'}
                   </button>
                 )}
 
                 <RecipeChat
                   currentRecipe={selectedRecipe.card}
-                  onUpdateRecipe={(updatedCard) =>
-                   setRecipes((items) =>
-                     items.map((r) =>
-                        r.id === selectedRecipe.id ? { ...r, card: updatedCard } : r
-                     )
-                   )
-                  }
+                  onUpdateRecipe={handleRecipeUpdate}
                 />
 
               </article>
