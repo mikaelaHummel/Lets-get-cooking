@@ -1,5 +1,6 @@
 from typing import Optional, Any, Dict
 import os
+import time
 import traceback
 import psycopg
 from dotenv import load_dotenv
@@ -40,7 +41,7 @@ app.add_middleware(
   CORSMiddleware,
   allow_origins=["http://localhost:5173"],
   allow_credentials=False,
-  allow_methods=["GET", "POST"],
+  allow_methods=["GET", "POST","DELETE"],
   allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -212,7 +213,37 @@ def get_current_user(payload: dict = Depends(verify_token)):
 
 
 
+@app.get("/recipes")
+def get_recipes(payload: dict = Depends(verify_token)):
+    auth0_id = payload["sub"]
 
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, title, ingredients, instructions,
+                       prep_time, cook_time, servings
+                FROM recipes
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                """,
+                (auth0_id,)
+            )
+
+            rows = cur.fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "title": row[1],
+            "ingredients": row[2],
+            "instructions": row[3],
+            "prepTime": row[4],
+            "cookTime": row[5],
+            "servings": row[6]
+        }
+        for row in rows
+    ]
 
 
 

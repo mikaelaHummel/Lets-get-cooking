@@ -35,6 +35,16 @@ function App() {
   const [savingRecipe, setSavingRecipe] = useState(false);
 
   useEffect(() => {
+  if (isLoading) return;
+
+  if (isAuthenticated) {
+    loadSavedRecipes();
+  } else {
+    setRecipes([]);
+  }
+}, [isAuthenticated, isLoading, getAccessTokenSilently]);
+
+  useEffect(() => {
     function handleRouteChange() {
       const nextRoute = currentRoute();
 
@@ -218,6 +228,35 @@ function App() {
       setSavingRecipe(false);
     }
   }
+
+  async function loadSavedRecipes() {
+  try {
+    const token = await getAccessTokenSilently();
+
+    const response = await fetch('http://localhost:8000/recipes', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Could not load recipes');
+    }
+
+    const data = await response.json();
+
+    const savedRecipes = data.map((recipe) => ({
+      id: String(recipe.id),
+      source: 'Saved Recipe',
+      card: recipe
+    }));
+
+    setRecipes(savedRecipes);
+
+  } catch (error) {
+    console.error('Error loading saved recipes:', error);
+  }
+}
 
   function handleRecipeUpdate(updatedCard) {
     if (!selectedRecipe) return;
