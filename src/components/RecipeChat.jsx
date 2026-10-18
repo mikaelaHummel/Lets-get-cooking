@@ -97,8 +97,8 @@ export default function RecipeChat({ currentRecipe, onUpdateRecipe }) {
                style={{
                  ...styles.bubble,
                  alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                 backgroundColor: msg.sender === 'user' ? '#007bff' : '#f1f1f1',
-                 color: msg.sender === 'user' ? '#fff' : '#333',
+                 backgroundColor: msg.sender === 'user' ? '#d5dfca' : '#eeece5',
+                 color: '#303b2b',
                }}
              >
                {msg.text}

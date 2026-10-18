@@ -660,7 +660,7 @@ function App() {
                   ))}
                 </ol>
 
-                {isAuthenticated && (
+                {isAuthenticated && previewRecipe?.id === selectedRecipe.id && (
                   <button
                     className="button"
                     type="button"
